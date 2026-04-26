@@ -353,6 +353,17 @@ struct SettingsPopover: View {
                 set: { _ in timer.toggleDockVisibility() }
             )) { Text("Show in Dock").font(.caption) }
             .toggleStyle(.checkbox)
+
+            Divider()
+
+            Button(role: .destructive) {
+                NSApp.terminate(nil)
+            } label: {
+                Label("Quit Pomodof", systemImage: "power")
+                    .font(.caption)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.red.opacity(0.8))
         }
         .padding(14)
         .frame(width: 200)
