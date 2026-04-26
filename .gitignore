@@ -13,6 +13,7 @@ DerivedData/
 # Build output
 build/
 Products/
+dist/
 
 # OS
 .DS_Store
