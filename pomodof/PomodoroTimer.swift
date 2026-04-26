@@ -23,6 +23,7 @@ class PomodoroTimer: ObservableObject {
     // MARK: - Timer state
     @Published var remainingSeconds: Int = 25 * 60
     @Published var isRunning: Bool = false
+    @Published var isPaused: Bool = false
     @Published var sessionCompleted: Bool = false
 
     // MARK: - Settings
@@ -31,6 +32,7 @@ class PomodoroTimer: ObservableObject {
     // MARK: - Reminders
     @Published var reminders: [EKReminder] = []
     @Published var selectedReminderIDs: Set<String> = []
+    @Published var reminderAccessDenied: Bool = false
 
     private var timerTask: Task<Void, Never>?
     private let eventStore = EKEventStore()
@@ -56,10 +58,6 @@ class PomodoroTimer: ObservableObject {
     }
 
     var totalSeconds: Int { currentDurationMinutes * 60 }
-
-    var isPaused: Bool {
-        !isRunning && !sessionCompleted && remainingSeconds > 0 && remainingSeconds < totalSeconds
-    }
 
     var progress: Double {
         guard totalSeconds > 0 else { return 0 }
@@ -129,6 +127,7 @@ class PomodoroTimer: ObservableObject {
             remainingSeconds = currentDurationMinutes * 60
             sessionStartTime = Date()
         }
+        isPaused = false
         isRunning = true
         let deadline = Date().addingTimeInterval(TimeInterval(remainingSeconds))
         timerTask = Task {
@@ -143,12 +142,14 @@ class PomodoroTimer: ObservableObject {
 
     func pause() {
         isRunning = false
+        isPaused = true
         timerTask?.cancel()
         timerTask = nil
     }
 
     func stop() {
         pause()
+        isPaused = false
         remainingSeconds = currentDurationMinutes * 60
         sessionStartTime = nil
     }
@@ -163,7 +164,9 @@ class PomodoroTimer: ObservableObject {
 
     func fetchReminders() {
         Task {
-            guard (try? await eventStore.requestFullAccessToReminders()) == true else { return }
+            let granted = (try? await eventStore.requestFullAccessToReminders()) == true
+            reminderAccessDenied = !granted
+            guard granted else { return }
             loadReminders()
         }
     }
@@ -264,6 +267,7 @@ class PomodoroTimer: ObservableObject {
     private func finish() {
         sessionID = String(UUID().uuidString.prefix(8)).lowercased()
         isRunning = false
+        isPaused = false
         timerTask = nil
         NSSound(named: "Glass")?.play()
         sendLocalNotification()
@@ -274,14 +278,12 @@ class PomodoroTimer: ObservableObject {
     private func createLogReminder() {
         let names = selectedReminders.compactMap(\.title)
         let title = names.isEmpty ? "🍅 Pomodof Done" : "🍅 \(names.prefix(2).joined(separator: " + "))"
-        Task {
-            guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else { return }
-            let r = EKReminder(eventStore: eventStore)
-            r.title    = title
-            r.calendar = eventStore.defaultCalendarForNewReminders()
-            try? eventStore.save(r, commit: true)
-            sessionLogReminder = r
-        }
+        guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else { return }
+        let r = EKReminder(eventStore: eventStore)
+        r.title    = title
+        r.calendar = eventStore.defaultCalendarForNewReminders()
+        try? eventStore.save(r, commit: true)
+        sessionLogReminder = r
     }
 
     private func sendLocalNotification() {

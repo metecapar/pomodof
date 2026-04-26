@@ -100,7 +100,21 @@ struct TaskListView: View {
     // Reminder task list
     @ViewBuilder
     private var taskList: some View {
-        if timer.reminders.isEmpty {
+        if timer.reminderAccessDenied {
+            VStack(spacing: 6) {
+                Image(systemName: "lock.shield")
+                    .font(.title2)
+                    .foregroundStyle(.tertiary)
+                Text("Reminders access denied")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Enable in System Settings → Privacy")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.quaternary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 28)
+        } else if timer.reminders.isEmpty {
             VStack(spacing: 6) {
                 Image(systemName: "checklist")
                     .font(.title2)
@@ -335,6 +349,7 @@ struct SessionCompleteView: View {
 
 struct SettingsPopover: View {
     @EnvironmentObject var timer: PomodoroTimer
+    @EnvironmentObject var updateChecker: UpdateChecker
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -353,6 +368,16 @@ struct SettingsPopover: View {
                 set: { _ in timer.toggleDockVisibility() }
             )) { Text("Show in Dock").font(.caption) }
             .toggleStyle(.checkbox)
+
+            Toggle(isOn: Binding(
+                get: { updateChecker.checkForUpdates },
+                set: { updateChecker.checkForUpdates = $0 }
+            )) { Text("Check for Updates").font(.caption) }
+            .toggleStyle(.checkbox)
+
+            if updateChecker.checkForUpdates {
+                updateStatus
+            }
 
             Divider()
 
@@ -374,6 +399,44 @@ struct SettingsPopover: View {
         }
         .padding(14)
         .frame(width: 200)
+    }
+
+    @ViewBuilder
+    private var updateStatus: some View {
+        if updateChecker.hasUpdate, let url = updateChecker.updateURL {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.down.circle.fill")
+                    .foregroundStyle(.green)
+                    .font(.system(size: 12))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("v\(updateChecker.latestVersion ?? "") available")
+                        .font(.system(size: 10, weight: .medium))
+                    Link("Download", destination: url)
+                        .font(.system(size: 10))
+                }
+            }
+            .padding(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color.green.opacity(0.08)))
+        } else if updateChecker.checkFailed {
+            HStack(spacing: 6) {
+                Image(systemName: "wifi.slash")
+                    .foregroundStyle(.secondary)
+                    .font(.system(size: 11))
+                Text("Couldn't check for updates")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+        } else if updateChecker.latestVersion != nil {
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.circle")
+                    .foregroundStyle(.green)
+                    .font(.system(size: 11))
+                Text("You're up to date")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
 

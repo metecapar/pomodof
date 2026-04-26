@@ -13,12 +13,15 @@ struct PomodofApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var pomodoroTimer = PomodoroTimer()
     @StateObject private var audioPlayer   = FocusAudioPlayer()
+    @StateObject private var updateChecker = UpdateChecker()
 
     var body: some Scene {
         MenuBarExtra {
             ContentView()
                 .environmentObject(pomodoroTimer)
                 .environmentObject(audioPlayer)
+                .environmentObject(updateChecker)
+                .onAppear { updateChecker.check() }
         } label: {
             Text(pomodoroTimer.menuBarLabel)
         }

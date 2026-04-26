@@ -25,14 +25,17 @@ class FocusAudioPlayer: ObservableObject {
     private let engine = AVAudioEngine()
     private let node   = AVAudioPlayerNode()
     private var ready  = false
+    private var bufferTask: Task<Void, Never>?
 
     func select(_ sound: FocusSound) {
+        bufferTask?.cancel()
         stopEngine()
         current = sound
         guard sound != .off else { return }
-        Task.detached(priority: .userInitiated) { [weak self] in
+        bufferTask = Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
             let buffer = Self.makeBuffer(for: sound)
+            guard !Task.isCancelled else { return }
             await MainActor.run { self.startPlaying(buffer) }
         }
     }
@@ -67,8 +70,8 @@ class FocusAudioPlayer: ObservableObject {
         }
         engine.mainMixerNode.outputVolume = volume
         try? engine.start()
-        node.play()
         node.scheduleBuffer(buffer, at: nil, options: .loops)
+        node.play()
     }
 
     private func stopEngine() {
