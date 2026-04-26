@@ -75,11 +75,22 @@ jobs:
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          xcrun notarytool submit Pomodof.zip \
+          RESULT=$(xcrun notarytool submit Pomodof.zip \
             --apple-id "$APPLE_ID" \
             --password "$APPLE_APP_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
-            --wait
+            --wait 2>&1) || true
+          echo "$RESULT"
+          ID=$(echo "$RESULT" | grep "id:" | head -1 | awk '{print $2}')
+          STATUS=$(echo "$RESULT" | grep "status:" | tail -1 | awk '{print $2}')
+          if [ "$STATUS" != "Accepted" ]; then
+            echo "--- Notarization log ---"
+            xcrun notarytool log "$ID" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_APP_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" || true
+            exit 1
+          fi
 
       - name: Staple
         run: |
