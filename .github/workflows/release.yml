@@ -34,6 +34,22 @@ jobs:
           sed -i '' "s/MARKETING_VERSION = .*/MARKETING_VERSION = $VERSION;/" pomodof.xcodeproj/project.pbxproj
           sed -i '' "s/CURRENT_PROJECT_VERSION = .*/CURRENT_PROJECT_VERSION = $BUILD;/" pomodof.xcodeproj/project.pbxproj
 
+      - name: Import signing certificate
+        env:
+          CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN="build.keychain"
+          KEYCHAIN_PASSWORD="actions"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security default-keychain -s "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -t 3600 "$KEYCHAIN"
+          echo "$CERTIFICATE_P12" | base64 --decode > cert.p12
+          security import cert.p12 -k "$KEYCHAIN" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          rm cert.p12
+
       - name: Build
         run: |
           xcodebuild \
@@ -41,19 +57,36 @@ jobs:
             -scheme pomodof \
             -configuration Release \
             -derivedDataPath build \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+            CODE_SIGN_STYLE=Manual \
+            OTHER_CODE_SIGN_FLAGS="--options=runtime" \
             build
-
-      - name: Ad-hoc sign
-        run: |
-          APP="build/Build/Products/Release/pomodof.app"
-          codesign --force --deep --sign - "$APP"
 
       - name: Package
         run: |
           APP="build/Build/Products/Release/pomodof.app"
+          ditto -c -k --keepParent "$APP" Pomodof.zip
+          hdiutil create -volname "Pomodof" -srcfolder "$APP" -ov -format UDZO Pomodof.dmg
+
+      - name: Notarize
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcrun notarytool submit Pomodof.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+      - name: Staple
+        run: |
+          APP="build/Build/Products/Release/pomodof.app"
+          xcrun stapler staple "$APP"
+          # Re-package with stapled ticket
+          rm Pomodof.zip Pomodof.dmg
           ditto -c -k --keepParent "$APP" Pomodof.zip
           hdiutil create -volname "Pomodof" -srcfolder "$APP" -ov -format UDZO Pomodof.dmg
 
@@ -65,12 +98,7 @@ jobs:
           ## Install
 
           1. Download **Pomodof.dmg**, mount it and drag to Applications.
-          2. First launch: **right-click → Open** to bypass Gatekeeper (app is not notarized).
-          3. If macOS still blocks it, run in Terminal:
-             ```
-             xattr -cr /Applications/pomodof.app
-             ```
-             then open normally.
+          2. Open Pomodof from Applications.
 
           Requires macOS 14 or later.
           NOTES
@@ -80,3 +108,7 @@ jobs:
             Pomodof.zip \
             --title "Pomodof $REF_NAME" \
             --notes "$NOTES"
+
+      - name: Cleanup keychain
+        if: always()
+        run: security delete-keychain build.keychain || true
