@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag name (e.g. v1.0.0)"
+        required: true
 
 jobs:
   build:
@@ -15,10 +20,12 @@ jobs:
 
       - name: Set version from tag
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
+          REF="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${REF#v}"
           BUILD=$(date +%Y%m%d%H%M)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "BUILD=$BUILD"     >> $GITHUB_ENV
+          echo "REF_NAME=$REF"    >> $GITHUB_ENV
 
       - name: Bump version in project
         run: |
@@ -29,7 +36,7 @@ jobs:
         run: |
           xcodebuild \
             -project pomodof.xcodeproj \
-            -scheme pomodof \
+            -target pomodof \
             -configuration Release \
             -derivedDataPath build \
             CODE_SIGN_IDENTITY="" \
@@ -47,13 +54,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
+          NOTES=$(cat <<'NOTES'
+          ## Install
+
+          1. Download `Pomodof.dmg`, mount it and drag to Applications.
+          2. First launch: **right-click → Open** to bypass Gatekeeper (app is not notarized).
+
+          Requires macOS 14 or later.
+          NOTES
+          )
+          gh release create "$REF_NAME" \
             Pomodof.dmg \
             Pomodof.zip \
-            --title "Pomodof $GITHUB_REF_NAME" \
-            --notes "## Install
-
-          1. Download \`Pomodof.dmg\`, mount it and drag to Applications.
-          2. First launch: **right-click → Open** to bypass Gatekeeper.
-
-          Requires macOS 14 or later."
+            --title "Pomodof $REF_NAME" \
+            --notes "$NOTES"
