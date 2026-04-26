@@ -225,6 +225,7 @@ struct TimerView: View {
 struct SessionCompleteView: View {
     @EnvironmentObject var timer: PomodoroTimer
     @State private var quality: Int = 0
+    @State private var reviewText: String = ""
 
     var body: some View {
         VStack(spacing: 16) {
@@ -254,12 +255,27 @@ struct SessionCompleteView: View {
                 }
             }
 
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Session notes")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                TextField("What did you work on? Any blockers?", text: $reviewText, axis: .vertical)
+                    .font(.caption)
+                    .lineLimit(3...4)
+                    .textFieldStyle(.plain)
+                    .padding(8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.secondary.opacity(0.08))
+                    )
+            }
+
             HStack(spacing: 10) {
                 Button("Skip") { timer.completeSession(quality: 0) }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
                 Button(quality > 0 ? "Save  \(quality)★" : "Save") {
-                    timer.completeSession(quality: quality)
+                    timer.completeSession(quality: quality, review: reviewText)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.red)

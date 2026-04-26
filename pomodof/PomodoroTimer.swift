@@ -11,6 +11,7 @@ enum SessionMode: String, CaseIterable {
     case long  = "Long"
 }
 
+@MainActor
 class PomodoroTimer: ObservableObject {
 
     // MARK: - Mode & durations
@@ -167,7 +168,7 @@ class PomodoroTimer: ObservableObject {
 
     // MARK: - Session Complete
 
-    func completeSession(quality: Int) {
+    func completeSession(quality: Int, review: String = "") {
         let duration  = currentDurationMinutes
         let endTime   = Date()
         let startTime = sessionStartTime ?? endTime.addingTimeInterval(TimeInterval(-duration * 60))
@@ -181,6 +182,7 @@ class PomodoroTimer: ObservableObject {
             : "—"
 
         let tag = "#pomo-\(sessionID)"
+        let trimmedReview = review.trimmingCharacters(in: .whitespacesAndNewlines)
 
         let noteLines: [String?] = [
             "📅 \(df.string(from: endTime))",
@@ -188,6 +190,7 @@ class PomodoroTimer: ObservableObject {
             "⏱ \(duration) min (\(activeMode.rawValue))",
             names.isEmpty ? nil : "📋 \(names.joined(separator: ", "))",
             "⭐ \(stars)",
+            trimmedReview.isEmpty ? nil : "📝 \(trimmedReview)",
             "🔗 \(tag)"
         ]
         let notes = noteLines.compactMap { $0 }.joined(separator: "\n")
@@ -198,8 +201,8 @@ class PomodoroTimer: ObservableObject {
             try? eventStore.save(log, commit: true)
         }
 
-        // Append session back-link to each worked task's notes before completing
-        let taskBacklink = "\n\n📍 Pomodoro \(df.string(from: endTime)) \(tf.string(from: startTime))→\(tf.string(from: endTime)) · \(duration)min · \(stars)\n🔗 \(tag)"
+        let reviewSuffix = trimmedReview.isEmpty ? "" : "\n📝 \(trimmedReview)"
+        let taskBacklink = "\n\n📍 Pomodoro \(df.string(from: endTime)) \(tf.string(from: startTime))→\(tf.string(from: endTime)) · \(duration)min · \(stars)\(reviewSuffix)\n🔗 \(tag)"
         if markDoneOnFinish {
             for r in selectedReminders {
                 r.notes = (r.notes ?? "") + taskBacklink
@@ -254,6 +257,7 @@ class PomodoroTimer: ObservableObject {
         isRunning = false
         timerTask = nil
         NSSound(named: "Glass")?.play()
+        sendLocalNotification()
         createLogReminder()
         sessionCompleted = true
     }
@@ -262,13 +266,10 @@ class PomodoroTimer: ObservableObject {
         let names = selectedReminders.compactMap(\.title)
         let title = names.isEmpty ? "🍅 Pomodof Done" : "🍅 \(names.prefix(2).joined(separator: " + "))"
         Task {
-            guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else {
-                sendLocalNotification(); return
-            }
+            guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else { return }
             let r = EKReminder(eventStore: eventStore)
             r.title    = title
             r.calendar = eventStore.defaultCalendarForNewReminders()
-            r.addAlarm(EKAlarm(absoluteDate: Date()))
             try? eventStore.save(r, commit: true)
             sessionLogReminder = r
         }
