@@ -180,9 +180,10 @@ struct TaskListView: View {
 
 struct TimerView: View {
     @EnvironmentObject var timer: PomodoroTimer
+    @EnvironmentObject var audioPlayer: FocusAudioPlayer
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             ZStack {
                 Circle()
                     .stroke(Color.secondary.opacity(0.15), lineWidth: 8)
@@ -214,9 +215,52 @@ struct TimerView: View {
                 Button("Complete") { timer.finishEarly() }.buttonStyle(.borderedProminent).tint(.red)
                 Button("Stop")     { timer.stop()        }.buttonStyle(.bordered).tint(.secondary)
             }
+
+            Divider()
+
+            soundPicker
         }
         .padding(24)
         .frame(width: 270)
+    }
+
+    private var soundPicker: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 6) {
+                ForEach(FocusSound.allCases, id: \.self) { sound in
+                    let active = audioPlayer.current == sound
+                    Button { audioPlayer.select(sound) } label: {
+                        VStack(spacing: 3) {
+                            Image(systemName: sound.icon)
+                                .font(.system(size: 12))
+                            Text(sound.rawValue)
+                                .font(.system(size: 9))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(active ? Color.red.opacity(0.12) : Color.secondary.opacity(0.07))
+                        .foregroundStyle(active ? Color.red : Color.secondary)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if audioPlayer.current != .off {
+                HStack(spacing: 6) {
+                    Image(systemName: "speaker.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                    Slider(value: Binding(
+                        get: { Double(audioPlayer.volume) },
+                        set: { audioPlayer.setVolume(Float($0)) }
+                    ))
+                    Image(systemName: "speaker.wave.2.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
     }
 }
 
@@ -303,6 +347,12 @@ struct SettingsPopover: View {
             Toggle("Mark tasks done on finish", isOn: $timer.markDoneOnFinish)
                 .font(.caption)
                 .toggleStyle(.checkbox)
+
+            Toggle(isOn: Binding(
+                get: { timer.isDockVisible },
+                set: { _ in timer.toggleDockVisibility() }
+            )) { Text("Show in Dock").font(.caption) }
+            .toggleStyle(.checkbox)
         }
         .padding(14)
         .frame(width: 200)

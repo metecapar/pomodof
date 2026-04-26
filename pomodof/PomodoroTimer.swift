@@ -74,6 +74,8 @@ class PomodoroTimer: ObservableObject {
 
     var isLaunchAtLoginEnabled: Bool { SMAppService.mainApp.status == .enabled }
 
+    var isDockVisible: Bool { UserDefaults.standard.bool(forKey: "showInDock") }
+
     var selectedReminders: [EKReminder] {
         reminders.filter { selectedReminderIDs.contains($0.calendarItemIdentifier) }
     }
@@ -232,6 +234,13 @@ class PomodoroTimer: ObservableObject {
             else { try SMAppService.mainApp.register() }
             objectWillChange.send()
         } catch {}
+    }
+
+    func toggleDockVisibility() {
+        let newValue = !isDockVisible
+        UserDefaults.standard.set(newValue, forKey: "showInDock")
+        NSApp.setActivationPolicy(newValue ? .regular : .accessory)
+        objectWillChange.send()
     }
 
     func finishEarly() {

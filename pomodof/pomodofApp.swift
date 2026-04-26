@@ -3,7 +3,8 @@ import AppKit
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        let showInDock = UserDefaults.standard.bool(forKey: "showInDock")
+        NSApp.setActivationPolicy(showInDock ? .regular : .accessory)
     }
 }
 
@@ -11,14 +12,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 struct PomodofApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var pomodoroTimer = PomodoroTimer()
+    @StateObject private var audioPlayer   = FocusAudioPlayer()
 
     var body: some Scene {
         MenuBarExtra {
             ContentView()
                 .environmentObject(pomodoroTimer)
+                .environmentObject(audioPlayer)
         } label: {
             Text(pomodoroTimer.menuBarLabel)
         }
         .menuBarExtraStyle(.window)
+        .onChange(of: pomodoroTimer.isRunning) { _, running in
+            if running { audioPlayer.resume() }
+            else { audioPlayer.pause() }
+        }
+        .onChange(of: pomodoroTimer.sessionCompleted) { _, completed in
+            if completed { audioPlayer.stopAll() }
+        }
     }
 }
