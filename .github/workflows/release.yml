@@ -36,7 +36,7 @@ jobs:
         run: |
           xcodebuild \
             -project pomodof.xcodeproj \
-            -target pomodof \
+            -scheme pomodof \
             -configuration Release \
             -derivedDataPath build \
             CODE_SIGN_IDENTITY="" \
