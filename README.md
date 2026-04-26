@@ -4,7 +4,7 @@ A minimal Pomodoro timer that lives in your Mac menu bar. Link tasks from Remind
 
 ## Download
 
-Grab the latest release from the [dist](./dist) folder:
+**[→ Latest Release](https://github.com/metecapar/pomodof/releases/latest)**
 
 - **`Pomodof.dmg`** — mount and drag to Applications (recommended)
 - **`Pomodof.zip`** — unzip and move `pomodof.app` to Applications
