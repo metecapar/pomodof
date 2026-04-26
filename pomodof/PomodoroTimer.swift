@@ -163,11 +163,20 @@ class PomodoroTimer: ObservableObject {
     }
 
     func fetchReminders() {
-        Task {
-            let granted = (try? await eventStore.requestFullAccessToReminders()) == true
-            reminderAccessDenied = !granted
-            guard granted else { return }
+        let status = EKEventStore.authorizationStatus(for: .reminder)
+        switch status {
+        case .fullAccess:
+            reminderAccessDenied = false
             loadReminders()
+        case .notDetermined:
+            Task {
+                let granted = (try? await eventStore.requestFullAccessToReminders()) == true
+                reminderAccessDenied = !granted
+                guard granted else { return }
+                loadReminders()
+            }
+        default:
+            reminderAccessDenied = true
         }
     }
 

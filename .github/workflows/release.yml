@@ -41,10 +41,15 @@ jobs:
             -scheme pomodof \
             -configuration Release \
             -derivedDataPath build \
-            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_ALLOWED=YES \
             build
+
+      - name: Ad-hoc sign
+        run: |
+          APP="build/Build/Products/Release/pomodof.app"
+          codesign --force --deep --sign - "$APP"
 
       - name: Package
         run: |
@@ -59,8 +64,13 @@ jobs:
           NOTES=$(cat <<'NOTES'
           ## Install
 
-          1. Download `Pomodof.dmg`, mount it and drag to Applications.
+          1. Download **Pomodof.dmg**, mount it and drag to Applications.
           2. First launch: **right-click → Open** to bypass Gatekeeper (app is not notarized).
+          3. If macOS still blocks it, run in Terminal:
+             ```
+             xattr -cr /Applications/pomodof.app
+             ```
+             then open normally.
 
           Requires macOS 14 or later.
           NOTES
