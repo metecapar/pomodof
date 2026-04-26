@@ -80,6 +80,7 @@ jobs:
           hdiutil create -volname "Pomodof" -srcfolder "$APP" -ov -format UDZO Pomodof.dmg
 
       - name: Notarize
+        timeout-minutes: 15
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
@@ -89,6 +90,7 @@ jobs:
             --apple-id "$APPLE_ID" \
             --password "$APPLE_APP_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
+            --timeout 10m \
             --wait 2>&1) || true
           echo "$RESULT"
           ID=$(echo "$RESULT" | grep "id:" | head -1 | awk '{print $2}')
