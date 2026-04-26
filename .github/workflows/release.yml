@@ -60,8 +60,18 @@ jobs:
             CODE_SIGN_IDENTITY="Developer ID Application" \
             DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
             CODE_SIGN_STYLE=Manual \
-            OTHER_CODE_SIGN_FLAGS="--options=runtime" \
+            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
+            OTHER_CODE_SIGN_FLAGS="--options=runtime --timestamp" \
             build
+
+      - name: Re-sign for notarization
+        run: |
+          APP="build/Build/Products/Release/pomodof.app"
+          codesign --force --deep --sign "Developer ID Application" \
+            --options runtime \
+            --timestamp \
+            --entitlements pomodof/pomodofApp.entitlements \
+            "$APP"
 
       - name: Package
         run: |
