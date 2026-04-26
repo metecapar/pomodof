@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version from tag
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          BUILD=$(date +%Y%m%d%H%M)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "BUILD=$BUILD"     >> $GITHUB_ENV
+
+      - name: Bump version in project
+        run: |
+          sed -i '' "s/MARKETING_VERSION = .*/MARKETING_VERSION = $VERSION;/" pomodof.xcodeproj/project.pbxproj
+          sed -i '' "s/CURRENT_PROJECT_VERSION = .*/CURRENT_PROJECT_VERSION = $BUILD;/" pomodof.xcodeproj/project.pbxproj
+
+      - name: Build
+        run: |
+          xcodebuild \
+            -project pomodof.xcodeproj \
+            -scheme pomodof \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package
+        run: |
+          APP="build/Build/Products/Release/pomodof.app"
+          ditto -c -k --keepParent "$APP" Pomodof.zip
+          hdiutil create -volname "Pomodof" -srcfolder "$APP" -ov -format UDZO Pomodof.dmg
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            Pomodof.dmg \
+            Pomodof.zip \
+            --title "Pomodof $GITHUB_REF_NAME" \
+            --notes "## Install
+
+          1. Download \`Pomodof.dmg\`, mount it and drag to Applications.
+          2. First launch: **right-click → Open** to bypass Gatekeeper.
+
+          Requires macOS 14 or later."

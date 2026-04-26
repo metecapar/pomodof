@@ -364,6 +364,13 @@ struct SettingsPopover: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.red.opacity(0.8))
+
+            let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+            let build   = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+            Text("v\(version) (\(build))")
+                .font(.system(size: 9))
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(14)
         .frame(width: 200)
